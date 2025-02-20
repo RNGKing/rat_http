@@ -1,10 +1,11 @@
 #![allow(non_snake_case)]
-use axum::{response::Html, routing::get, Router};
+use axum::{response::Html, routing::get, Router, extract::State};
 use tokio::signal;
 use shtml::{html, Elements, Component, Render};
 use tower_http::services::ServeDir;
+use std::sync::{Arc, Mutex};
 
-#[derive(Clone,Copy)]
+#[derive(Clone, Copy)]
 enum TokenType{
     Player,
     Monster,
@@ -17,7 +18,7 @@ struct Token{
     pub token_type : TokenType
 }
 
-#[derive(Clone,Copy)]
+#[derive(Clone, Copy)]
 enum DoorState{
     Open,
     ClosedLocked,
@@ -32,8 +33,12 @@ struct TileStack{
 
 impl TileStack{
     pub fn new() -> TileStack{
+        let mut input_stack : [Token ; 100] = [Token {token_type : TokenType::None} ; 100];
+        for x in 0 .. 100 {
+            input_stack[x] = Token{token_type : TokenType::None};
+        }
         TileStack{
-            stack : [Token {token_type : TokenType::None} ; 100]
+            stack : input_stack
         }
     }
 }
@@ -46,21 +51,45 @@ enum Tile{
     None
 }
 
-#[derive(Clone)]
+enum InputDirection{
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT
+}
+
 struct GameBoard{
-    pub game_board : [[Tile ; 50] ; 50]
+    pub game_board : [[Tile ; 100] ; 100]
 }
 
 impl GameBoard {
     pub fn new_empty() -> GameBoard {
-        let board : [[Tile ; 50] ; 50] = [[Tile::None ; 50] ; 50];
+        let board : [[Tile ; 100] ; 100] = [[Tile::None ; 100] ; 100];
         GameBoard{
             game_board : board
         }  
     }
+
+    pub fn update_game_state(&mut self, direction : InputDirection){
+        println!("Being called from the input");
+        
+        match direction {
+            InputDirection::UP => println!("move up"),
+            InputDirection::DOWN => println!("move down"),
+            InputDirection::LEFT => println!("move left"),
+            InputDirection::RIGHT => println!("move right"),
+        }
+
+
+
+    }
+
+
 }
 
-#[derive(Clone)]
+
+
+
 struct AppState{
     game_board : GameBoard
 }
@@ -71,6 +100,8 @@ impl AppState {
             game_board : GameBoard::new_empty()
         }
     }
+
+
 
     pub fn new_game_board(self) -> AppState {
         // Draw the upper wall
@@ -94,10 +125,14 @@ impl AppState {
     }
 }
 
+#[derive(Clone)]
+struct ApplicationState(Arc<Mutex<AppState>>);
+
+
 #[tokio::main]
 async fn main() {
     println!("Starting Rat HTTP");
-    let state = AppState::new_server_state().new_game_board();
+    let state = ApplicationState(Arc::new(Mutex::new(AppState::new_server_state())));
     let app = Router::new()
         .route("/", get(handler))
         .route("/new_game", get(new_game_handler))
@@ -107,6 +142,7 @@ async fn main() {
         .route("/move_up", get(move_up_handler))
         .nest_service("/static", ServeDir::new("static"))
         .with_state(state);
+
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
@@ -129,7 +165,7 @@ async fn handler() -> Html<String> {
             <body>
                 <h1>RAT.HTML</h1>
                 <h6>An HTML Only Rogue - Like  by Patrick Phillips</h6>
-                <h6>Check out the source on github!</h6>
+                <h6>Check out the source on <a href="https://github.com/RNGKing/rat_http/tree/main"> github!</a></h6>
                 <button 
                     hx-get="/new_game"
                     hx-target="#game-holding"
@@ -139,14 +175,13 @@ async fn handler() -> Html<String> {
                     
                 </button>
                 <div>
-                    <p>Powered by the SHAT STACK!</p>
+                    <p>Powered by the <a href="https://github.com/ChristianPavilonis/shat-stack"> SHAT STACK!</a></p>
                 </div>
             </body>
         </html>
     }.to_string();
     Html(output)
 }
-
 
 fn PlayerInputBlock() -> Component {
     html!{
@@ -159,144 +194,114 @@ fn PlayerInputBlock() -> Component {
     }
 }
 
-async fn move_right_handler() -> Html<String>{
-    println!("move right");
-    let output = html!{
-        <PlayerInputBlock/>
-        <div id="game-target">
-            <h1>You pressed right</h1>
-        </div>
-    }.to_string();
+fn TestOutputBlock() -> Component{
+    html!{
+        <svg width="100" height="100">
+            <circle cx="50" cy="50" r="40" stroke="green" stroke-width="4" fill="yellow" />
+        </svg>
+    }
+}
+
+async fn move_right_handler(State(state) : State<ApplicationState>) -> Html<String>{
+    let output : String = match state.0.lock(){
+        Ok(mut app_state) => {
+            let board = &mut app_state.game_board;
+            board.update_game_state(InputDirection::RIGHT);
+            html!{
+                <PlayerInputBlock/>
+                <div id="game-target">
+                    <h1>You pressed right</h1>
+                </div>
+            }.to_string()
+        },
+        Err(_) => {
+            html!{
+                <div>
+                    <h1>Major error when pressing right</h1>
+                </div>
+            }.to_string()
+        }
+    };
     Html(output)
 }
 
-async fn move_left_handler() -> Html<String>{
-    println!("move left");
-    let output = html!{
-        <PlayerInputBlock/>
-        <div id="game-target">
-            <h1>You pressed left</h1>
-        </div>
-    }.to_string();
+async fn move_left_handler(State(state) : State<ApplicationState>) -> Html<String>{
+    let output : String = match state.0.lock(){
+        Ok(mut app_state) => {
+            let board = &mut app_state.game_board;
+            board.update_game_state(InputDirection::LEFT);
+            html!{
+                <PlayerInputBlock/>
+                <div id="game-target">
+                    <h1>You pressed left</h1>
+                </div>
+            }.to_string()
+        },
+        Err(_) => {
+            html!{
+                <div>
+                    <h1>Major error when pressing left</h1>
+                </div>
+            }.to_string()
+        }
+    };
     Html(output)
 }
 
-async fn move_down_handler() -> Html<String>{
-    println!("move down");
-
-    let output = html!{
-        <PlayerInputBlock/>
-        <div id="game-target">
-            <h1>You pressed down</h1>
-        </div>
-    }.to_string();
+async fn move_down_handler(State(state) : State<ApplicationState>) -> Html<String>{
+    let output : String = match state.0.lock(){
+        Ok(mut app_state) => {
+            let board = &mut app_state.game_board;
+            board.update_game_state(InputDirection::DOWN);
+            html!{
+                <PlayerInputBlock/>
+                <div id="game-target">
+                    <h1>You pressed down</h1>
+                </div>
+            }.to_string()
+        },
+        Err(_) => {
+            html!{
+                <div>
+                    <h1>Major error when pressing down</h1>
+                </div>
+            }.to_string()
+        }
+    };
     Html(output)
 }
 
-async fn move_up_handler() -> Html<String>{
-    println!("move up");
-    
-    let output = html!{
-        <PlayerInputBlock/>
-        <div id="game-target">
-            <h1>You pressed up</h1>
-        </div>
-    }.to_string();
+async fn move_up_handler(State(state) : State<ApplicationState>) -> Html<String>{
+    let output : String = match state.0.lock(){
+        Ok(mut app_state) => {
+            let board = &mut app_state.game_board;
+            board.update_game_state(InputDirection::UP);
+            html!{
+                <PlayerInputBlock/>
+                <div id="game-target">
+                    <h1>You pressed up</h1>
+                </div>
+            }.to_string()
+        },
+        Err(_) => {
+            html!{
+                <div>
+                    <h1>Major error when pressing up</h1>
+                </div>
+            }.to_string()
+        }
+    };
     Html(output)
 }
 
 async fn new_game_handler() ->Html<String>{
     println!("new game started");
     let output = html!{
-        <PlayerInputBlock/>
         <div id="game-target">
-            <table>
-                <tr>
-                    <td>#</td>
-                    <td>#</td>
-                    <td>#</td>
-                    <td>#</td>
-                    <td>#</td>
-                    <td>#</td>
-                    <td>#</td>
-                    <td>#</td>
-                    <td>#</td>
-                    <td>#</td>
-                </tr>
-                <tr>
-                    <td>#</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>#</td>
-                </tr>
-                <tr>
-                    <td>#</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>@</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>#</td>
-                </tr>
-                <tr>
-                    <td>#</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>#</td>
-                </tr>
-                <tr>
-                    <td>#</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>#</td>
-                </tr>
-                <tr>
-                    <td>#</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>.</td>
-                    <td>#</td>
-                </tr>
-                <tr>
-                    <td>#</td>
-                    <td>#</td>
-                    <td>#</td>
-                    <td>#</td>
-                    <td>#</td>
-                    <td>#</td>
-                    <td>#</td>
-                    <td>#</td>
-                    <td>#</td>
-                    <td>#</td>
-                </tr>
-            </table>
+            <PlayerInputBlock/>
+            <TestOutputBlock/>
         </div>
+        //</div>
     }.to_string();
     return Html(output)
 }
