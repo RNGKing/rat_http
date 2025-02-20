@@ -79,12 +79,9 @@ impl GameBoard {
             InputDirection::LEFT => println!("move left"),
             InputDirection::RIGHT => println!("move right"),
         }
-
-
-
     }
 
-
+    
 }
 
 
@@ -194,6 +191,25 @@ fn PlayerInputBlock() -> Component {
     }
 }
 
+fn RenderGameBoard(game_board : &mut GameBoard) -> Component {
+    html!{
+        <svg width="500" height="500">
+            // upper wall
+            <text x="0" y="10" fill="red">#</text>
+            <text x="10" y="10" fill="red">#</text>
+            <text x="20" y="10" fill="red">#</text>
+            <text x="30" y="10" fill="red">#</text>
+            <text x="40" y="10" fill="red">#</text>
+            // lower wall
+            <text x="0" y="60" fill="red">#</text>
+            <text x="10" y="60" fill="red">#</text>
+            <text x="20" y="60" fill="red">#</text>
+            <text x="30" y="60" fill="red">#</text>
+            <text x="40" y="60" fill="red">#</text>
+        </svg>
+    }
+}
+
 fn TestOutputBlock() -> Component{
     html!{
         <svg width="100" height="100">
@@ -210,7 +226,7 @@ async fn move_right_handler(State(state) : State<ApplicationState>) -> Html<Stri
             html!{
                 <PlayerInputBlock/>
                 <div id="game-target">
-                    <h1>You pressed right</h1>
+                    <RenderGameBoard game_board=board/>
                 </div>
             }.to_string()
         },
