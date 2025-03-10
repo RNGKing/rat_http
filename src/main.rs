@@ -80,12 +80,7 @@ impl GameBoard {
             InputDirection::RIGHT => println!("move right"),
         }
     }
-
-    
 }
-
-
-
 
 struct AppState{
     game_board : GameBoard
@@ -97,8 +92,6 @@ impl AppState {
             game_board : GameBoard::new_empty()
         }
     }
-
-
 
     pub fn new_game_board(self) -> AppState {
         // Draw the upper wall
@@ -125,13 +118,12 @@ impl AppState {
 #[derive(Clone)]
 struct ApplicationState(Arc<Mutex<AppState>>);
 
-
 #[tokio::main]
 async fn main() {
     println!("Starting Rat HTTP");
     let state = ApplicationState(Arc::new(Mutex::new(AppState::new_server_state())));
     let app = Router::new()
-        .route("/", get(handler))
+        .route("/", get(index_handler))
         .route("/new_game", get(new_game_handler))
         .route("/move_right", get(move_right_handler))
         .route("/move_left", get(move_left_handler))
@@ -139,7 +131,6 @@ async fn main() {
         .route("/move_up", get(move_up_handler))
         .nest_service("/static", ServeDir::new("static"))
         .with_state(state);
-
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
@@ -151,7 +142,7 @@ async fn main() {
         .with_graceful_shutdown(shutdown_signal()).await.unwrap();
 }
 
-async fn handler() -> Html<String> {
+async fn index_handler() -> Html<String> {
     println!("Main Menu Accessed");
     let output = html!{
         <!DOCTYPE html>
@@ -168,8 +159,7 @@ async fn handler() -> Html<String> {
                     hx-target="#game-holding"
                     hx-swap="outerHTML"
                     id="game-holding">
-                    Click Me!
-                    
+                    New Game
                 </button>
                 <div>
                     <p>Powered by the <a href="https://github.com/ChristianPavilonis/shat-stack"> SHAT STACK!</a></p>
@@ -195,17 +185,28 @@ fn RenderGameBoard(game_board : &mut GameBoard) -> Component {
     html!{
         <svg width="500" height="500">
             // upper wall
-            <text x="0" y="10" fill="red">#</text>
-            <text x="10" y="10" fill="red">#</text>
-            <text x="20" y="10" fill="red">#</text>
-            <text x="30" y="10" fill="red">#</text>
-            <text x="40" y="10" fill="red">#</text>
+            <text style="font-family: monospace, monospace;" x="15" y="15" fill="red">#</text>
+            <text style="font-family: monospace, monospace;" x="30" y="15" fill="red">#</text>
+            <text style="font-family: monospace, monospace;" x="45" y="15" fill="red">#</text>
+            <text style="font-family: monospace, monospace;" x="60" y="15" fill="red">#</text>
+            <text style="font-family: monospace, monospace;" x="75" y="15" fill="red">#</text>
             // lower wall
-            <text x="0" y="60" fill="red">#</text>
-            <text x="10" y="60" fill="red">#</text>
-            <text x="20" y="60" fill="red">#</text>
-            <text x="30" y="60" fill="red">#</text>
-            <text x="40" y="60" fill="red">#</text>
+            <text style="font-family: monospace, monospace;" x="15" y="90" fill="red">#</text>
+            <text style="font-family: monospace, monospace;" x="30" y="90" fill="red">#</text>
+            <text style="font-family: monospace, monospace;" x="45" y="90" fill="red">#</text>
+            <text style="font-family: monospace, monospace;" x="60" y="90" fill="red">#</text>
+            <text style="font-family: monospace, monospace;" x="75" y="90" fill="red">#</text>
+            // left wall
+            <text style="font-family: monospace, monospace;" x="15" y="30" fill="red">#</text>
+            <text style="font-family: monospace, monospace;" x="15" y="45" fill="red">#</text>
+            <text style="font-family: monospace, monospace;" x="15" y="60" fill="red">#</text>
+            <text style="font-family: monospace, monospace;" x="15" y="75" fill="red">#</text>
+            // right wall
+            <text style="font-family: monospace, monospace;" x="75" y="30" fill="red">#</text>
+            <text style="font-family: monospace, monospace;" x="75" y="45" fill="red">#</text>
+            <text style="font-family: monospace, monospace;" x="75" y="60" fill="red">#</text>
+            <text style="font-family: monospace, monospace;" x="75" y="75" fill="red">#</text>
+            
         </svg>
     }
 }
@@ -310,7 +311,7 @@ async fn move_up_handler(State(state) : State<ApplicationState>) -> Html<String>
     Html(output)
 }
 
-async fn new_game_handler() ->Html<String>{
+async fn new_game_handler() -> Html<String>{
     println!("new game started");
     let output = html!{
         <div id="game-target">
