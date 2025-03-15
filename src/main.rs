@@ -72,7 +72,6 @@ impl GameBoard {
 
     pub fn update_game_state(&mut self, direction : InputDirection){
         println!("Being called from the input");
-        
         match direction {
             InputDirection::UP => println!("move up"),
             InputDirection::DOWN => println!("move down"),
@@ -182,30 +181,48 @@ fn PlayerInputBlock() -> Component {
 }
 
 fn RenderGameBoard(game_board : &mut GameBoard) -> Component {
+    
+    // html!{
+    //     <svg width="500" height="500">
+    //         // upper wall
+    //         <text style="font-family: monospace, monospace;" x="15" y="15" fill="red">#</text>
+    //         <text style="font-family: monospace, monospace;" x="30" y="15" fill="red">#</text>
+    //         <text style="font-family: monospace, monospace;" x="45" y="15" fill="red">#</text>
+    //         <text style="font-family: monospace, monospace;" x="60" y="15" fill="red">#</text>
+    //         <text style="font-family: monospace, monospace;" x="75" y="15" fill="red">#</text>
+    //         // lower wall
+    //         <text style="font-family: monospace, monospace;" x="15" y="90" fill="red">#</text>
+    //         <text style="font-family: monospace, monospace;" x="30" y="90" fill="red">#</text>
+    //         <text style="font-family: monospace, monospace;" x="45" y="90" fill="red">#</text>
+    //         <text style="font-family: monospace, monospace;" x="60" y="90" fill="red">#</text>
+    //         <text style="font-family: monospace, monospace;" x="75" y="90" fill="red">#</text>
+    //         // left wall
+    //         <text style="font-family: monospace, monospace;" x="15" y="30" fill="red">#</text>
+    //         <text style="font-family: monospace, monospace;" x="15" y="45" fill="red">#</text>
+    //         <text style="font-family: monospace, monospace;" x="15" y="60" fill="red">#</text>
+    //         <text style="font-family: monospace, monospace;" x="15" y="75" fill="red">#</text>
+    //         // right wall
+    //         <text style="font-family: monospace, monospace;" x="75" y="30" fill="red">#</text>
+    //         <text style="font-family: monospace, monospace;" x="75" y="45" fill="red">#</text>
+    //         <text style="font-family: monospace, monospace;" x="75" y="60" fill="red">#</text>
+    //         <text style="font-family: monospace, monospace;" x="75" y="75" fill="red">#</text>
+            
+    //     </svg>
+    // }
+        
+    let mut current_x_pos = 15;
+    let mut current_y_pos = 15;
+    for row in 0 .. 10{
+        current_y_pos = current_y_pos + (row * 15);
+        for column in 0..10{
+            current_x_pos = current_x_pos + (column * 15);
+            println!("{} , {}, {}, {}", column, row, current_x_pos, current_y_pos);
+        }
+        current_x_pos = 15;
+    }
+    
     html!{
         <svg width="500" height="500">
-            // upper wall
-            <text style="font-family: monospace, monospace;" x="15" y="15" fill="red">#</text>
-            <text style="font-family: monospace, monospace;" x="30" y="15" fill="red">#</text>
-            <text style="font-family: monospace, monospace;" x="45" y="15" fill="red">#</text>
-            <text style="font-family: monospace, monospace;" x="60" y="15" fill="red">#</text>
-            <text style="font-family: monospace, monospace;" x="75" y="15" fill="red">#</text>
-            // lower wall
-            <text style="font-family: monospace, monospace;" x="15" y="90" fill="red">#</text>
-            <text style="font-family: monospace, monospace;" x="30" y="90" fill="red">#</text>
-            <text style="font-family: monospace, monospace;" x="45" y="90" fill="red">#</text>
-            <text style="font-family: monospace, monospace;" x="60" y="90" fill="red">#</text>
-            <text style="font-family: monospace, monospace;" x="75" y="90" fill="red">#</text>
-            // left wall
-            <text style="font-family: monospace, monospace;" x="15" y="30" fill="red">#</text>
-            <text style="font-family: monospace, monospace;" x="15" y="45" fill="red">#</text>
-            <text style="font-family: monospace, monospace;" x="15" y="60" fill="red">#</text>
-            <text style="font-family: monospace, monospace;" x="15" y="75" fill="red">#</text>
-            // right wall
-            <text style="font-family: monospace, monospace;" x="75" y="30" fill="red">#</text>
-            <text style="font-family: monospace, monospace;" x="75" y="45" fill="red">#</text>
-            <text style="font-family: monospace, monospace;" x="75" y="60" fill="red">#</text>
-            <text style="font-family: monospace, monospace;" x="75" y="75" fill="red">#</text>
             
         </svg>
     }
@@ -311,16 +328,29 @@ async fn move_up_handler(State(state) : State<ApplicationState>) -> Html<String>
     Html(output)
 }
 
-async fn new_game_handler() -> Html<String>{
+async fn new_game_handler(State(state) : State<ApplicationState>) -> Html<String>{
     println!("new game started");
-    let output = html!{
-        <div id="game-target">
-            <PlayerInputBlock/>
-            <TestOutputBlock/>
-        </div>
-        //</div>
-    }.to_string();
-    return Html(output)
+
+    let output : String = match state.0.lock(){
+        Ok(mut app_state) => {
+            let board = &mut app_state.game_board;
+            board.update_game_state(InputDirection::RIGHT);
+            html!{
+                <PlayerInputBlock/>
+                <div id="game-target">
+                    <RenderGameBoard game_board=board/>
+                </div>
+            }.to_string()
+        },
+        Err(_) => {
+            html!{
+                <div>
+                    <h1>Major error when starting a new game</h1>
+                </div>
+            }.to_string()
+        }
+    };
+    Html(output)
 }
 
 async fn shutdown_signal(){
